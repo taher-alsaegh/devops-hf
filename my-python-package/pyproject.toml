@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "my-python-package"
+version = "0.1.0"
+description = "Beispielpaket für Azure DevOps Feed"
+authors = [ { name = "Dein Name", email = "dein.name@example.com" } ]
+dependencies = [ "requests>=2.25.0" ]
+requires-python = ">=3.9"
+
+[project.urls]
+Homepage = "https://dev.azure.com/<ORG>/<PROJECT>"
+Repository = "https://dev.azure.com/<ORG>/<PROJECT>/_git/my-python-package"
+
