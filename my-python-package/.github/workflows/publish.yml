@@ -36,7 +36,7 @@ jobs:
           [azure]
           repository: https://pkgs.dev.azure.com/${{ secrets.AZDO_ORG }}/${{ secrets.AZDO_PROJECT }}/_packaging/${{ secrets.AZDO_FEED }}/pypi/upload/
           username: azdo
-          password: ${{ secrets.AZDO_PAT }}
+          password: ${{ secrets.AZDO_SECRETS }}
           EOF
           chmod 600 ~/.pypirc
 
