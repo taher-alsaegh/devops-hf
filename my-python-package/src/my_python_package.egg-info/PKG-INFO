@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: my-python-package
+Version: 0.1.0
+Summary: Beispielpaket für Azure DevOps Feed
+Author-email: Dein Name <dein.name@example.com>
+Project-URL: Homepage, https://dev.azure.com/<ORG>/<PROJECT>
+Project-URL: Repository, https://dev.azure.com/<ORG>/<PROJECT>/_git/my-python-package
+Requires-Python: >=3.9
+Requires-Dist: requests>=2.25.0
