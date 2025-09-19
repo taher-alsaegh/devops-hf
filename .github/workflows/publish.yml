@@ -39,6 +39,7 @@ jobs:
           password: ${{ secrets.AZDO_PAT }}
           EOF
           chmod 600 ~/.pypirc
+          cat ~/.pypirc
 
       - name: Publish to Azure DevOps Feed
         run: twine upload --repository azure dist/*
