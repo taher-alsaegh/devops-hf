@@ -1,39 +1,46 @@
-publish:
-  name: Build & Publish Python Package to Azure DevOps Feed
-  runs-on: ubuntu-latest
-  needs: [tests] 
-  if: ${{ github.ref == 'refs/heads/main' }}
-  permissions:
-    contents: read
-  steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+name: Build & Publish Python Package to Azure DevOps Feed
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
 
-    - name: Install build tooling
-      run: |
-        pip install --upgrade pip
-        pip install build twine
+jobs:
+  publish:
+    name: Build & Publish Python Package to Azure DevOps Feed
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/main' }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Build package (sdist + wheel)
-      run: python -m build
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: Publish to Azure DevOps Feed
-      run: |
-        twine upload \
-          --repository-url "https://pkgs.dev.azure.com/${{ secrets.AZDO_ORG }}/${{ secrets.AZDO_PROJECT }}/_packaging/${{ secrets.AZDO_FEED }}/pypi/upload/" \
-          -u azdo -p ${{ secrets.AZDO_PAT }} dist/*
+      - name: Install build tooling
+        run: |
+          pip install --upgrade pip
+          pip install build twine
 
-    - name: Verify install (no upstream caching)
-      env:
-        FEED: "https://azdo:${{ secrets.AZDO_PAT }}@pkgs.dev.azure.com/${{ secrets.AZDO_ORG }}/${{ secrets.AZDO_PROJECT }}/_packaging/${{ secrets.AZDO_FEED }}/pypi/simple/"
-      run: |
-        python -m venv venv
-        source venv/bin/activate
-        pip install --upgrade pip
-        # Dependencies von PyPI, dein Paket aus Azure Feed
-        pip install --index-url https://pypi.org/simple --extra-index-url "$FEED" my-python-package==0.1.3
+      - name: Build package (sdist + wheel)
+        run: python -m build
+
+      - name: Publish to Azure DevOps Feed
+        run: |
+          twine upload \
+            --repository-url "https://pkgs.dev.azure.com/${{ secrets.AZDO_ORG }}/${{ secrets.AZDO_PROJECT }}/_packaging/${{ secrets.AZDO_FEED }}/pypi/upload/" \
+            -u azdo -p ${{ secrets.AZDO_PAT }} dist/*
+
+      - name: Verify install (no upstream caching)
+        env:
+          FEED: "https://azdo:${{ secrets.AZDO_PAT }}@pkgs.dev.azure.com/${{ secrets.AZDO_ORG }}/${{ secrets.AZDO_PROJECT }}/_packaging/${{ secrets.AZDO_FEED }}/pypi/simple/"
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          # Dependencies von PyPI, dein Paket aus Azure Feed
+          pip install --index-url https://pypi.org/simple --extra-index-url "$FEED" my-python-package==0.1.3
