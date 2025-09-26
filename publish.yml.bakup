@@ -56,3 +56,175 @@ jobs:
           name: dist-artifacts
           path: dist/*
 
+
+---
+
+name: Build & Publish Python Package to Azure DevOps Feed
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  publish:
+    name: Build & Publish Python Package to Azure DevOps Feed
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/main' }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build tooling
+        run: |
+          pip install --upgrade pip
+          pip install build twine
+
+      - name: Build package (sdist + wheel)
+        run: python -m build
+
+      - name: Publish to Azure DevOps Feed
+        run: |
+          twine upload \
+            --repository-url "https://pkgs.dev.azure.com/${{ secrets.AZDO_ORG }}/${{ secrets.AZDO_PROJECT }}/_packaging/${{ secrets.AZDO_FEED }}/pypi/upload/" \
+            -u azdo -p ${{ secrets.AZDO_PAT }} dist/*
+
+      - name: Verify install (no upstream caching)
+        env:
+          FEED: "https://azdo:${{ secrets.AZDO_PAT }}@pkgs.dev.azure.com/${{ secrets.AZDO_ORG }}/${{ secrets.AZDO_PROJECT }}/_packaging/${{ secrets.AZDO_FEED }}/pypi/simple/"
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          # Dependencies von PyPI, dein Paket aus Azure Feed
+          pip install --index-url https://pypi.org/simple --extra-index-url "$FEED" my-python-package==0.1.6
+
+
+  deploy:
+    needs: publish
+    if: ${{ needs.publish.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps: 
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Download published wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: published-dist
+          path: dist
+
+      - name: Locate wheel file
+        id: wheel
+        shell: bash
+        run: |
+          set -e
+          WHEEL=$(ls dist/*.whl | head -n1)
+          if [ -z "$WHEEL" ]; then echo "No wheel found in dist/"; ls -la dist || true; exit 1; fi
+          echo "wheel=$WHEEL" >> $GITHUB_OUTPUT
+          echo "wheel_name=$(basename "$WHEEL")" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS CLI
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Generate cloud-config
+        run: |
+          cat > cloud-config.yaml <<'EOF'
+          #cloud-config
+          users:
+            - name: ubuntu
+              shell: /bin/bash
+              groups: [sudo]
+              sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+              ssh_authorized_keys:
+                - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDX3LtOduUJMcdvLAXHi1lrkpXp+KyTLk/+WNZSb425e30pfFBNzH3PSOp56U5vKfOHqBaM3rkZEf7Pdcmr9FZRjcDlW3+Rs2uUVhmw/Sov3/CgJ6gbxZfeu4yU6dksrYYh0HtE5aIFI1rPnK7KwDLoTMsOU0cX8rgZGNhj9lzLvNjusH4FRCmZpt2p7vZMVii3rw/NsQ7EGdZAp55Vw9EpaqYbkNL5BkT2KLMdTwPS2d6hL/Uvnr9AL0nQiVjgItO7FvbBkYpfnkDVan2UW7L8hVgUYlfKuQ0JTnuObMQ5JJy6yrQYLO6L1a5Gmab+fXKVYL77EoNOmdrL2rwl2Cj5rNhFJ3eyG6I+fdGzfmJi9429YoT1yEij1JTVe62CX45qWscfAnqk5MOPEtAAoz00HjxSPSUzpXIVA3tqGHIaCcmBacOPvN1JzBMXJMSRLFtS2xBZWYyG5byplRFL1LYDi829+Wxw3ugLTPsYP9LUn10hsFkXvMJr2YyOvZ9ndG8= taher@macbook-pro-von-taher.home
+
+          package_update: true
+          packages:
+            - python3
+            - python3-venv
+            - python3-pip
+
+          runcmd:
+            - [ bash, -lc, "mkdir -p /opt/flaskapp && chown -R ubuntu:ubuntu /opt/flaskapp" ]
+            - [ bash, -lc, "sudo -u ubuntu -H python3 -m venv /opt/flaskapp/venv" ]
+            - [ bash, -lc, "sudo -u ubuntu -H /opt/flaskapp/venv/bin/pip install --upgrade pip" ]
+            - [ bash, -lc, "sudo -u ubuntu -H /opt/flaskapp/venv/bin/pip install --index-url https://pypi.org/simple --extra-index-url https://azdo:${{ secrets.AZDO_PAT }}@pkgs.dev.azure.com/${{ secrets.AZDO_ORG }}/${{ secrets.AZDO_PROJECT }}/_packaging/${{ secrets.AZDO_FEED }}/pypi/simple/ my-python-package==0.1.3" ]
+            - [ bash, -lc, "systemctl daemon-reload" ]
+          EOF
+
+      - name: Launch EC2 instance with cloud-init
+        run: |
+          aws ec2 run-instances \
+            --image-id ami-0360c520857e3138f \
+            --instance-type t3.micro \
+            --security-group-ids sg-036ccc3c2f023b457 \
+            --subnet-id subnet-02860236dcb261e54 \
+            --user-data file://cloud-config.yaml \
+            --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=my-flaskapp}]'
+      
+      - name: Find the IP Adress of EC2
+        run: |
+          $IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=my-flaskapp" "Name=instance-state-name,Values=running" \
+            --query "Reservations[].Instances[].PublicIpAddress" \
+            --output text)
+            echo $IP >> $GITHUB_ENV
+
+      - name: Copy wheel to EC2 (SCP)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ env.IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PUBLIC_KEY }}
+          port: 22
+          source: "dist/${{ steps.wheel.outputs.wheel_name }}"
+          target: "/tmp/"
+          strip_components: 1
+          overwrite: true
+
+      - name: Install and restart service (SSH)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ env.IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PUBLIC_KEY }}
+          port: 22
+          debug: true
+          script: |
+            set -euo pipefail
+            set -x
+            sudo mkdir -p /opt/flaskapp && sudo chown -R ubuntu:ubuntu /opt/flaskapp
+            # Ensure venv capability present on Debian/Ubuntu
+            if ! python3 -m venv --help >/dev/null 2>&1; then
+              if command -v apt-get >/dev/null 2>&1; then sudo apt-get update -y && sudo apt-get install -y python3-venv python3-pip; fi
+            fi
+            if [ ! -d /opt/flaskapp/venv/bin/activate ]; then python3 -m venv /opt/flaskapp/venv/bin/activate; fi
+            source "/opt/flaskapp/venv/bin/activate"
+            python -V
+            pip -V
+            pip install --upgrade pip
+            if [ -f "/tmp/requirements.txt" ]; then pip install -r /tmp/requirements.txt; fi
+            ls -l "/tmp/${{ steps.wheel.outputs.wheel_name }}"
+            pip install --no-cache-dir --force-reinstall "/tmp/${{ steps.wheel.outputs.wheel_name }}"
+            sudo systemctl daemon-reload
+            sudo systemctl enable --now flaskapp
+            sudo systemctl restart flaskapp
+            sleep 2
+            if ! sudo systemctl is-active --quiet flaskapp; then
+              sudo systemctl status --no-pager --full flaskapp || true
+              sudo journalctl -u flaskapp -n 100 --no-pager || true
+              exit 1
+            fi
