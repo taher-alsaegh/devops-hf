@@ -69,7 +69,7 @@ jobs:
               groups: [sudo]
               sudo: ["ALL=(ALL) NOPASSWD:ALL"]
               ssh_authorized_keys:
-                - ${{ secrets.SSH_PUBLIC_KEY }}
+                - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDX3LtOduUJMcdvLAXHi1lrkpXp+KyTLk/+WNZSb425e30pfFBNzH3PSOp56U5vKfOHqBaM3rkZEf7Pdcmr9FZRjcDlW3+Rs2uUVhmw/Sov3/CgJ6gbxZfeu4yU6dksrYYh0HtE5aIFI1rPnK7KwDLoTMsOU0cX8rgZGNhj9lzLvNjusH4FRCmZpt2p7vZMVii3rw/NsQ7EGdZAp55Vw9EpaqYbkNL5BkT2KLMdTwPS2d6hL/Uvnr9AL0nQiVjgItO7FvbBkYpfnkDVan2UW7L8hVgUYlfKuQ0JTnuObMQ5JJy6yrQYLO6L1a5Gmab+fXKVYL77EoNOmdrL2rwl2Cj5rNhFJ3eyG6I+fdGzfmJi9429YoT1yEij1JTVe62CX45qWscfAnqk5MOPEtAAoz00HjxSPSUzpXIVA3tqGHIaCcmBacOPvN1JzBMXJMSRLFtS2xBZWYyG5byplRFL1LYDi829+Wxw3ugLTPsYP9LUn10hsFkXvMJr2YyOvZ9ndG8= taher@macbook-pro-von-taher.home
 
           package_update: true
           packages:
@@ -90,7 +90,6 @@ jobs:
           aws ec2 run-instances \
             --image-id ami-0360c520857e3138f \
             --instance-type t3.micro \
-            --key-name webserver \
             --security-group-ids sg-036ccc3c2f023b457 \
             --subnet-id subnet-02860236dcb261e54 \
             --user-data file://cloud-config.yaml \
