@@ -1,0 +1,58 @@
+name: Build & Publish Python Package to Azure DevOps Feed
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build package (sdist + wheel)
+        run: python -m build
+
+      - name: Create ~/.pypirc for Azure DevOps
+        run: |
+          cat > ~/.pypirc <<EOF
+          [distutils]
+          index-servers = azure
+
+          [azure]
+          repository: https://pkgs.dev.azure.com/${{ secrets.AZDO_ORG }}/${{ secrets.AZDO_PROJECT }}/_packaging/${{ secrets.AZDO_FEED }}/pypi/upload/
+          username: azdo
+          password: ${{ secrets.AZDO_PAT }}
+          EOF
+          chmod 600 ~/.pypirc
+
+      - name: Publish to Azure DevOps Feed
+        run: twine upload --repository azure dist/*
+
+      - name: (Optional) Test install from feed
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install --index-url https://pkgs.dev.azure.com/${{ secrets.AZDO_ORG }}/${{ secrets.AZDO_PROJECT }}/_packaging/${{ secrets.AZDO_FEED }}/pypi/simple/ my-python-package==0.1.4
+
+      - name: Upload built artifacts (optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-artifacts
+          path: dist/*
+
