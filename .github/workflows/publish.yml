@@ -48,7 +48,7 @@ jobs:
           python -m venv venv
           source venv/bin/activate
           pip install --upgrade pip
-          pip install --index-url https://pkgs.dev.azure.com/${{ secrets.AZDO_ORG }}/${{ secrets.AZDO_PROJECT }}/_packaging/${{ secrets.AZDO_FEED }}/pypi/simple/ my-python-package==0.1.3
+          pip install --index-url https://pkgs.dev.azure.com/${{ secrets.AZDO_ORG }}/${{ secrets.AZDO_PROJECT }}/_packaging/${{ secrets.AZDO_FEED }}/pypi/simple/ my-python-package==0.1.4
 
       - name: Upload built artifacts (optional)
         uses: actions/upload-artifact@v4
