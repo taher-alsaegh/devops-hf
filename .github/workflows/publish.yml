@@ -122,6 +122,10 @@ jobs:
           echo "IP=$IP" >> $GITHUB_ENV
           echo "Found IP: $IP"
 
+      - name: Sleep for 60 seconds
+        run: sleep 60s
+        shell: bash
+
       - name: Copy wheel to EC2 (SCP)
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -132,10 +136,6 @@ jobs:
           source: "dist/${{ steps.wheel.outputs.wheel_name }}"
           target: "/tmp/"
           overwrite: true
-
-      - name: Sleep for 60 seconds
-        run: sleep 60s
-        shell: bash
 
       - name: Install and restart service (SSH)
         uses: appleboy/ssh-action@v1.0.3
