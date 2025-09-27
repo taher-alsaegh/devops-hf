@@ -109,7 +109,7 @@ jobs:
             --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=my-flaskapp}]'
 
       - name: Sleep until console output is ready
-        run: sleep 300s
+        run: sleep 600s
 
       - name: Fetch Instance ID and IP
         run: |
