@@ -102,6 +102,16 @@ jobs:
             --subnet-id subnet-02860236dcb261e54 \
             --user-data file://cloud-config.yaml \
             --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=my-flaskapp}]'
+        
+      - name: Generate SSH keypair
+        run: |
+          ssh-keygen -t rsa -b 4096 -f id_rsa -N ""
+          echo "PRIVATE_KEY<<EOF" >> $GITHUB_ENV
+          cat id_rsa >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+          echo "PUBLIC_KEY<<EOF" >> $GITHUB_ENV
+          cat id_rsa.pub >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
       
       - name: Find the IP Address of EC2
         run: |
@@ -112,16 +122,12 @@ jobs:
           echo "IP=$IP" >> $GITHUB_ENV
           echo "Found IP: $IP"
 
-      - name: Sleep for 30 seconds
-        run: sleep 60s
-        shell: bash
-
       - name: Copy wheel to EC2 (SCP)
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ env.IP }}
           username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ env.SSH_PRIVATE_KEY }}
           port: 22
           source: "dist/${{ steps.wheel.outputs.wheel_name }}"
           target: "/tmp/"
@@ -132,7 +138,7 @@ jobs:
         with:
           host: ${{ env.IP }}
           username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ env.SSH_PRIVATE_KEY }}
           port: 22
           script: |
             set -euo pipefail
