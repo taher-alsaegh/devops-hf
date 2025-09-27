@@ -83,31 +83,20 @@ jobs:
               shell: /bin/bash
               groups: [sudo]
               sudo: ["ALL=(ALL) NOPASSWD:ALL"]
-              ssh_authorized_keys:
-                - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDX3LtOduUJMcdvLAXHi1lrkpXp+KyTLk/+WNZSb425e30pfFBNzH3PSOp56U5vKfOHqBaM3rkZEf7Pdcmr9FZRjcDlW3+Rs2uUVhmw/Sov3/CgJ6gbxZfeu4yU6dksrYYh0HtE5aIFI1rPnK7KwDLoTMsOU0cX8rgZGNhj9lzLvNjusH4FRCmZpt2p7vZMVii3rw/NsQ7EGdZAp55Vw9EpaqYbkNL5BkT2KLMdTwPS2d6hL/Uvnr9AL0nQiVjgItO7FvbBkYpfnkDVan2UW7L8hVgUYlfKuQ0JTnuObMQ5JJy6yrQYLO6L1a5Gmab+fXKVYL77EoNOmdrL2rwl2Cj5rNhFJ3eyG6I+fdGzfmJi9429YoT1yEij1JTVe62CX45qWscfAnqk5MOPEtAAoz00HjxSPSUzpXIVA3tqGHIaCcmBacOPvN1JzBMXJMSRLFtS2xBZWYyG5byplRFL1LYDi829+Wxw3ugLTPsYP9LUn10hsFkXvMJr2YyOvZ9ndG8= taher@macbook-pro-von-taher.home
 
           package_update: true
           packages:
             - python3
             - python3-venv
             - python3-pip
-            - awscli
 
           runcmd:
             - sudo -u ubuntu ssh-keygen -t rsa -b 4096 -f /home/ubuntu/.ssh/id_rsa -N ""
-            - aws ssm put-parameter \
-                --name "/ec2/my-flaskapp/private-key" \
-                --type SecureString \
-                --value "$(cat /home/ubuntu/.ssh/id_rsa)" \
-                --overwrite \
-                --region us-east-1
-            - aws ssm put-parameter \
-                --name "/ec2/my-flaskapp/public-key" \
-                --type String \
-                --value "$(cat /home/ubuntu/.ssh/id_rsa.pub)" \
-                --overwrite \
-                --region us-east-1
-            EOF
+            - echo "-----BEGIN EC2 PRIVATE KEY-----" >> /var/log/cloud-init-output.log
+            - cat /home/ubuntu/.ssh/id_rsa >> /var/log/cloud-init-output.log
+            - echo "-----END EC2 PRIVATE KEY-----" >> /var/log/cloud-init-output.log
+            - cat /home/ubuntu/.ssh/id_rsa.pub >> /home/ubuntu/.ssh/authorized_keys
+          EOF
 
       - name: Launch EC2 instance with cloud-init
         run: |
@@ -118,32 +107,39 @@ jobs:
             --subnet-id subnet-02860236dcb261e54 \
             --user-data file://cloud-config.yaml \
             --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=my-flaskapp}]'
-        
-      - name: Fetch private key from SSM
+
+      - name: Fetch Instance ID and IP
         run: |
-          PRIVATE_KEY=$(aws ssm get-parameter \
-            --name "/ec2/my-flaskapp/private-key" \
-            --with-decryption \
-            --query "Parameter.Value" \
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=my-flaskapp" "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].InstanceId" \
             --output text)
+          IP=$(aws ec2 describe-instances \
+            --instance-ids $INSTANCE_ID \
+            --query "Reservations[0].Instances[0].PublicIpAddress" \
+            --output text)
+          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+          echo "IP=$IP" >> $GITHUB_ENV
+          echo "Instance: $INSTANCE_ID / IP: $IP"
+
+      - name: Sleep until console output is ready
+        run: sleep 60s
+
+      - name: Extract private key from console output
+        run: |
+          OUTPUT=$(aws ec2 get-console-output \
+            --instance-id $INSTANCE_ID \
+            --query "Output" \
+            --output text)
+          echo "$OUTPUT" > console.log
+          PRIVATE_KEY=$(sed -n '/-----BEGIN EC2 PRIVATE KEY-----/,/-----END EC2 PRIVATE KEY-----/p' console.log \
+            | grep -v "BEGIN EC2 PRIVATE KEY" \
+            | grep -v "END EC2 PRIVATE KEY")
           echo "PRIVATE_KEY<<EOF" >> $GITHUB_ENV
           echo "$PRIVATE_KEY" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
           echo "$PRIVATE_KEY" > id_rsa
           chmod 400 id_rsa
-      
-      - name: Find the IP Address of EC2
-        run: |
-          IP=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=my-flaskapp" "Name=instance-state-name,Values=running" \
-            --query "Reservations[0].Instances[0].PublicIpAddress" \
-            --output text)
-          echo "IP=$IP" >> $GITHUB_ENV
-          echo "Found IP: $IP"
-
-      - name: Sleep for 60 seconds
-        run: sleep 60s
-        shell: bash
 
       - name: Copy wheel to EC2 (SCP)
         uses: appleboy/scp-action@v0.1.7
@@ -175,4 +171,3 @@ jobs:
             sudo systemctl restart flaskapp
             sleep 2
             sudo systemctl status --no-pager --full flaskapp || true
-
