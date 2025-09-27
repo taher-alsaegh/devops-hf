@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "my-python-package"
-version = "0.1.80"
+version = "0.1.81"
 description = "Beispielpaket für Azure DevOps Feed"
 authors = [ { name = "Dein Name", email = "dein.name@example.com" } ]
 dependencies = [ "requests>=2.25.0" ]

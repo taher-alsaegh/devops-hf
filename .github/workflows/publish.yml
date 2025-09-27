@@ -112,6 +112,10 @@ jobs:
           echo "IP=$IP" >> $GITHUB_ENV
           echo "Found IP: $IP"
 
+      - name: Sleep for 30 seconds
+        run: sleep 60s
+        shell: bash
+
       - name: Copy wheel to EC2 (SCP)
         uses: appleboy/scp-action@v0.1.7
         with:
