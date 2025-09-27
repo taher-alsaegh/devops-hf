@@ -133,6 +133,10 @@ jobs:
           target: "/tmp/"
           overwrite: true
 
+      - name: Sleep for 60 seconds
+        run: sleep 60s
+        shell: bash
+
       - name: Install and restart service (SSH)
         uses: appleboy/ssh-action@v1.0.3
         with:
