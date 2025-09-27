@@ -127,7 +127,7 @@ jobs:
         with:
           host: ${{ env.IP }}
           username: ubuntu
-          key: ${{ env.SSH_PRIVATE_KEY }}
+          key: ${{ env.PRIVATE_KEY }}
           port: 22
           source: "dist/${{ steps.wheel.outputs.wheel_name }}"
           target: "/tmp/"
@@ -138,7 +138,7 @@ jobs:
         with:
           host: ${{ env.IP }}
           username: ubuntu
-          key: ${{ env.SSH_PRIVATE_KEY }}
+          key: ${{ env.PRIVATE_KEY }}
           port: 22
           script: |
             set -euo pipefail
