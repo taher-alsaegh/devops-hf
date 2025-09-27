@@ -92,9 +92,9 @@ jobs:
 
           runcmd:
             - sudo -u ubuntu ssh-keygen -t rsa -b 4096 -f /home/ubuntu/.ssh/id_rsa -N ""
-            - echo "-----BEGIN EC2 PRIVATE KEY-----" >> /var/log/cloud-init-output.log
-            - cat /home/ubuntu/.ssh/id_rsa >> /var/log/cloud-init-output.log
-            - echo "-----END EC2 PRIVATE KEY-----" >> /var/log/cloud-init-output.log
+            - echo "-----BEGIN EC2 PRIVATE KEY-----" > /dev/console
+            - cat /home/ubuntu/.ssh/id_rsa >> /dev/console
+            - echo "-----END EC2 PRIVATE KEY-----" > /dev/console
             - cat /home/ubuntu/.ssh/id_rsa.pub >> /home/ubuntu/.ssh/authorized_keys
           EOF
 
@@ -109,7 +109,7 @@ jobs:
             --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=my-flaskapp}]'
 
       - name: Sleep until console output is ready
-        run: sleep 60s
+        run: sleep 300s
 
       - name: Fetch Instance ID and IP
         run: |
