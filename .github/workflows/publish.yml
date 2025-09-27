@@ -91,7 +91,23 @@ jobs:
             - python3
             - python3-venv
             - python3-pip
-          EOF
+            - awscli
+
+          runcmd:
+            - sudo -u ubuntu ssh-keygen -t rsa -b 4096 -f /home/ubuntu/.ssh/id_rsa -N ""
+            - aws ssm put-parameter \
+                --name "/ec2/my-flaskapp/private-key" \
+                --type SecureString \
+                --value "$(cat /home/ubuntu/.ssh/id_rsa)" \
+                --overwrite \
+                --region us-east-1
+            - aws ssm put-parameter \
+                --name "/ec2/my-flaskapp/public-key" \
+                --type String \
+                --value "$(cat /home/ubuntu/.ssh/id_rsa.pub)" \
+                --overwrite \
+                --region us-east-1
+            EOF
 
       - name: Launch EC2 instance with cloud-init
         run: |
@@ -103,15 +119,18 @@ jobs:
             --user-data file://cloud-config.yaml \
             --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=my-flaskapp}]'
         
-      - name: Generate SSH keypair
+      - name: Fetch private key from SSM
         run: |
-          ssh-keygen -t rsa -b 4096 -f id_rsa -N ""
+          PRIVATE_KEY=$(aws ssm get-parameter \
+            --name "/ec2/my-flaskapp/private-key" \
+            --with-decryption \
+            --query "Parameter.Value" \
+            --output text)
           echo "PRIVATE_KEY<<EOF" >> $GITHUB_ENV
-          cat id_rsa >> $GITHUB_ENV
+          echo "$PRIVATE_KEY" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
-          echo "PUBLIC_KEY<<EOF" >> $GITHUB_ENV
-          cat id_rsa.pub >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          echo "$PRIVATE_KEY" > id_rsa
+          chmod 400 id_rsa
       
       - name: Find the IP Address of EC2
         run: |
