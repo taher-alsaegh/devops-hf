@@ -108,6 +108,9 @@ jobs:
             --user-data file://cloud-config.yaml \
             --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=my-flaskapp}]'
 
+      - name: Sleep until console output is ready
+        run: sleep 60s
+
       - name: Fetch Instance ID and IP
         run: |
           INSTANCE_ID=$(aws ec2 describe-instances \
@@ -120,15 +123,12 @@ jobs:
             --output text)
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
           echo "IP=$IP" >> $GITHUB_ENV
-          echo "Instance: $INSTANCE_ID / IP: $IP"
-
-      - name: Sleep until console output is ready
-        run: sleep 60s
+          echo "Instance: ${{ env.INSTANCE_ID }} / IP: ${{ env.IP }}"
 
       - name: Extract private key from console output
         run: |
           OUTPUT=$(aws ec2 get-console-output \
-            --instance-id $INSTANCE_ID \
+            --instance-id ${{ env.INSTANCE_ID }} \
             --query "Output" \
             --output text)
           echo "$OUTPUT" > console.log
