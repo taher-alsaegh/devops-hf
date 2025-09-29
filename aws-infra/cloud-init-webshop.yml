@@ -1,0 +1,83 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - nginx
+  - git
+  - python3-pip
+  - python3-venv
+  - sqlite3
+  - mariadb-client-core
+  - pkg-config
+  - libmariadb-dev
+  - libmariadb-dev-compat
+  - python-is-python3
+  - unzip
+
+runcmd:
+  # Projekt entpacken
+  - mkdir -p /opt
+  - cd /opt/
+  - git clone https://github.com/taher-alsaegh/Flask-Python-E-Commerce-Website.git
+  - cd Flask-Python-E-Commerce-Website
+
+  # Virtualenv + Python-Pakete
+  - python3 -m venv /opt/Flask-Python-E-Commerce-Website/.venv
+  - /opt/Flask-Python-E-Commerce-Website/.venv/bin/pip install --upgrade pip
+  - /opt/Flask-Python-E-Commerce-Website/.venv/bin/pip install -r /opt/Flask-Python-E-Commerce-Website/requirements.txt
+  - /opt/Flask-Python-E-Commerce-Website/.venv/bin/pip install cs50
+
+  # Gunicorn-Logs
+  - mkdir -p /var/log/gunicorn
+  - chown -R ubuntu:ubuntu /var/log/gunicorn
+
+  # Systemd Service
+  - |
+    cat > /etc/systemd/system/ecommerce.service <<'EOF'
+    [Unit]
+    Description=Ecommerce Gunicorn Service
+    After=network.target
+
+    [Service]
+    WorkingDirectory=/opt/Flask-Python-E-Commerce-Website
+    Environment="PATH=/opt/Flask-Python-E-Commerce-Website/.venv/bin"
+    ExecStart=/opt/Flask-Python-E-Commerce-Website/.venv/bin/gunicorn --bind 0.0.0.0:80 application:app --access-logfile /var/log/gunicorn/ecommerce.access.log --error-logfile /var/log/gunicorn/ecommerce.error.log
+    Restart=always
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+
+  # Nginx Konfiguration
+  - |
+    cat > /etc/nginx/sites-available/ecommerce <<'EOF'
+    server {
+        listen 80;
+
+        location / {
+            proxy_pass http://localhost:80/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            auth_basic "Restricted Access";
+            auth_basic_user_file /etc/nginx/.htpasswd;
+        }
+    }
+    EOF
+
+  # Htpasswd anlegen
+  - |
+    cat > /etc/nginx/.htpasswd <<'EOF'
+    webuser:$apr1$3haQNqEx$w949g6QxSudppxigTf4HW/
+    EOF
+
+  - ln -sf /etc/nginx/sites-available/ecommerce /etc/nginx/sites-enabled/ecommerce
+  - rm -f /etc/nginx/sites-enabled/default
+  - nginx -t
+  - systemctl restart nginx
+
+  # Service aktivieren und starten
+  - systemctl daemon-reload
+  - systemctl enable ecommerce.service
+  - systemctl start ecommerce.service
