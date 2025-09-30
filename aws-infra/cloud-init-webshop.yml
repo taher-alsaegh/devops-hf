@@ -14,12 +14,13 @@ packages:
   - python-is-python3
   - unzip
 
+# Dein Public Key für direkten SSH-Login
+ssh_authorized_keys:
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDewAWNeWYRCqYkhdUJSc/ZE2GIwMGsTUIPL8k1i4J6sjTVgpXmUb1UueW6hin6pgQuRpF0E+qYllt6/SBVSDL4+xYPAFVRJJEEe0o146AZkid/CD4YeGFC1871O4TxVYaD62nsEU4xiUK8mkKRDF92dGM6JQmlSP0tdbZ0iKQRsLWWPARvvaFYUDAoaqFEn+ZZA+BDLBuBpOmPli2tDcwORxKfMk3Vudr9rr3CU57HEWc5Zr8aaffP0pfNT/uUYa8L5oS7o6hZPVWHyWbrvGyGkpHfqKQl6CqmoCofC9nylvYK8nN7SSxHyfAFkn/Jk3X5LO95Y7/mnffBqJx/rU1gPc6kvhk3XoRTSnrVBaaIJKbup4s7gIZ+jBz79Nuh7oB5g89xUBbsE0xzjpj1Q7+3GPU7UxT1GMIF729ZAbKwOdkDTWXd8BUC0cGd+ActWMZv92hPUolq8+UdhwsePpPGKMCWxMWA1onCBZ9ycDGshPu4Pe2Y9BR+pdeSB96FtHiyHMJEA/IBhyebcugcVsAmrSjsA5MoavXsYqZ2arWRIrA2bvG9OsSYqRVEgcav35oCKV3NdXEnotkgjDMIYTZ+ZbdX83i/rRtr4UrcCSz2YqG1RdvEiOU6B5ZLMFUbKR8Pe7c4BWR5ouvqWfTsrsMpm0UswE2BDgI1vRrCYJwNqQ== taher@macbook-pro-von-taher.home
+
 runcmd:
-  # Projekt entpacken
-  - mkdir -p /opt
-  - cd /opt/
-  - git clone https://github.com/taher-alsaegh/Flask-Python-E-Commerce-Website.git
-  - cd Flask-Python-E-Commerce-Website
+  # Projekt klonen
+  - git clone https://github.com/taher-alsaegh/Flask-Python-E-Commerce-Website.git /opt/Flask-Python-E-Commerce-Website
 
   # Virtualenv + Python-Pakete
   - python3 -m venv /opt/Flask-Python-E-Commerce-Website/.venv
@@ -31,7 +32,7 @@ runcmd:
   - mkdir -p /var/log/gunicorn
   - chown -R ubuntu:ubuntu /var/log/gunicorn
 
-  # Systemd Service
+  # Systemd Service (Gunicorn auf Port 80)
   - |
     cat > /etc/systemd/system/ecommerce.service <<'EOF'
     [Unit]
@@ -41,21 +42,21 @@ runcmd:
     [Service]
     WorkingDirectory=/opt/Flask-Python-E-Commerce-Website
     Environment="PATH=/opt/Flask-Python-E-Commerce-Website/.venv/bin"
-    ExecStart=/opt/Flask-Python-E-Commerce-Website/.venv/bin/gunicorn --bind 0.0.0.0:80 application:app --access-logfile /var/log/gunicorn/ecommerce.access.log --error-logfile /var/log/gunicorn/ecommerce.error.log
+    ExecStart=/opt/Flask-Python-E-Commerce-Website/.venv/bin/gunicorn --bind 127.0.0.1:8000 application:app --access-logfile /var/log/gunicorn/ecommerce.access.log --error-logfile /var/log/gunicorn/ecommerce.error.log
     Restart=always
 
     [Install]
     WantedBy=multi-user.target
     EOF
 
-  # Nginx Konfiguration
+  # Nginx Konfiguration (Proxy → Gunicorn)
   - |
     cat > /etc/nginx/sites-available/ecommerce <<'EOF'
     server {
         listen 80;
 
         location / {
-            proxy_pass http://localhost:80/;
+            proxy_pass http://127.0.0.1:8000;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -72,12 +73,13 @@ runcmd:
     webuser:$apr1$3haQNqEx$w949g6QxSudppxigTf4HW/
     EOF
 
-  - ln -sf /etc/nginx/sites-available/ecommerce /etc/nginx/sites-enabled/ecommerce
-  - rm -f /etc/nginx/sites-enabled/default
-  - nginx -t
-  - systemctl restart nginx
+  # Nginx aktivieren
+  - sudo ln -sf /etc/nginx/sites-available/ecommerce /etc/nginx/sites-enabled/ecommerce
+  - sudo rm -f /etc/nginx/sites-enabled/default
+  - sudo nginx -t
+  - sudo systemctl restart nginx
 
-  # Service aktivieren und starten
+  # Gunicorn-Dienst aktivieren und starten
   - systemctl daemon-reload
   - systemctl enable ecommerce.service
   - systemctl start ecommerce.service

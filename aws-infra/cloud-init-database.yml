@@ -1,32 +1,33 @@
 #cloud-config
-
 package_update: true
 package_upgrade: true
 packages:
   - mariadb-server
   - git
 
+# SSH-Key für Zugriff
+ssh_authorized_keys:
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDewAWNeWYRCqYkhdUJSc/ZE2GIwMGsTUIPL8k1i4J6sjTVgpXmUb1UueW6hin6pgQuRpF0E+qYllt6/SBVSDL4+xYPAFVRJJEEe0o146AZkid/CD4YeGFC1871O4TxVYaD62nsEU4xiUK8mkKRDF92dGM6JQmlSP0tdbZ0iKQRsLWWPARvvaFYUDAoaqFEn+ZZA+BDLBuBpOmPli2tDcwORxKfMk3Vudr9rr3CU57HEWc5Zr8aaffP0pfNT/uUYa8L5oS7o6hZPVWHyWbrvGyGkpHfqKQl6CqmoCofC9nylvYK8nN7SSxHyfAFkn/Jk3X5LO95Y7/mnffBqJx/rU1gPc6kvhk3XoRTSnrVBaaIJKbup4s7gIZ+jBz79Nuh7oB5g89xUBbsE0xzjpj1Q7+3GPU7UxT1GMIF729ZAbKwOdkDTWXd8BUC0cGd+ActWMZv92hPUolq8+UdhwsePpPGKMCWxMWA1onCBZ9ycDGshPu4Pe2Y9BR+pdeSB96FtHiyHMJEA/IBhyebcugcVsAmrSjsA5MoavXsYqZ2arWRIrA2bvG9OsSYqRVEgcav35oCKV3NdXEnotkgjDMIYTZ+ZbdX83i/rRtr4UrcCSz2YqG1RdvEiOU6B5ZLMFUbKR8Pe7c4BWR5ouvqWfTsrsMpm0UswE2BDgI1vRrCYJwNqQ== taher@macbook-pro-von-taher.home
+
 runcmd:
-  # Bind-Address öffnen
-  - sudo sed -i 's/^bind-address\s*=.*$/bind-address = 0.0.0.0/' /etc/mysql/mariadb.conf.d/50-server.cnf
-  - sudo sed -i 's/^bind-address\s*=.*$/bind-address = 0.0.0.0/' /etc/mysql/my.cnf || true
-  - sudo systemctl restart mariadb
+  # MariaDB auf allen Interfaces öffnen
+  - sed -i 's/^bind-address\s*=.*$/bind-address = 0.0.0.0/' /etc/mysql/mariadb.conf.d/50-server.cnf
+  - sed -i 's/^bind-address\s*=.*$/bind-address = 0.0.0.0/' /etc/mysql/my.cnf || true
+  - systemctl restart mariadb
 
-  # MariaDB absichern
-  - sudo mysql -e "DELETE FROM mysql.user WHERE User='';"
-  - sudo mysql -e "DROP DATABASE IF EXISTS test;"
-  - sudo mysql -e "FLUSH PRIVILEGES;"
+  # Absicherung
+  - mysql -e "DELETE FROM mysql.user WHERE User='';"
+  - mysql -e "DROP DATABASE IF EXISTS test;"
+  - mysql -e "FLUSH PRIVILEGES;"
 
-  # DB + User anlegen
-  - sudo mysql -e "CREATE DATABASE IF NOT EXISTS ecommerce;"
-  - sudo mysql -e "CREATE USER IF NOT EXISTS 'shopuser'@'%' IDENTIFIED BY 'password2';"
-  - sudo mysql -e "GRANT ALL PRIVILEGES ON ecommerce.* TO 'shopuser'@'%';"
-  - sudo mysql -e "FLUSH PRIVILEGES;"
+  # DB und User anlegen
+  - mysql -e "CREATE DATABASE IF NOT EXISTS ecommerce;"
+  - mysql -e "CREATE USER IF NOT EXISTS 'shopuser'@'%' IDENTIFIED BY 'password';"
+  - mysql -e "GRANT ALL PRIVILEGES ON ecommerce.* TO 'shopuser'@'%';"
+  - mysql -e "FLUSH PRIVILEGES;"
 
-  # Projekt holen
-  - mkdir -p /home/ubuntu/ecommerce
+  # Projekt klonen
   - git clone https://github.com/taher-alsaegh/Flask-Python-E-Commerce-Website.git /home/ubuntu/ecommerce
 
   # SQL importieren
-  - sudo mysql ecommerce < /home/ubuntu/ecommerce/Flask-Python-E-Commerce-Website/ecommerce.sql
-
+  - mysql ecommerce < /home/ubuntu/ecommerce/ecommerce.sql

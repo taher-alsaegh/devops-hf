@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # ===== Settings =====
 REGION="us-east-1"
 AZ="us-east-1a"
@@ -8,12 +6,6 @@ AZ="us-east-1a"
 VPC_CIDR="10.11.5.0/24"
 SUBNET_DMZ_CIDR="10.11.5.192/26"   # public
 SUBNET_PRIV_CIDR="10.11.5.0/26"    # private
-
-PUBLIC_KEY_PATH="$HOME/.ssh/id_ed25519.pub"  # <-- Pfad zu DEINEM Public Key
-
-# ===== Preconditions =====
-command -v aws >/dev/null || { echo "aws CLI fehlt"; exit 1; }
-[[ -r "$PUBLIC_KEY_PATH" ]] || { echo "Public Key nicht lesbar: $PUBLIC_KEY_PATH"; exit 1; }
 
 # ===== VPC =====
 VPC_ID=$(aws ec2 create-vpc \
@@ -139,42 +131,29 @@ aws ec2 create-network-acl-entry --region "$REGION" --network-acl-id "$NACL_PRIV
 aws ec2 associate-network-acl --region "$REGION" --network-acl-id "$NACL_PRIV_ID" --subnet-id "$SUBNET_PRIV_ID"
 echo "NACLs: PUBLIC=$NACL_PUB_ID PRIVATE=$NACL_PRIV_ID"
 
-# ===== Key Pair (Import) =====
-aws ec2 import-key-pair \
-  --region "$REGION" \
-  --key-name "webserver" \
-  --public-key-material "fileb://${PUBLIC_KEY_PATH}"
-echo "KeyPair 'webserver' importiert."
-
-# ===== Create Key Pair ======
-aws ec2 create-key-pair \
-  --key-name database \
-  --query 'database' \
-  --output text > database.pem
-
 # =====Create EC2 Webshop=====
 aws ec2 run-instances \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=webserver}]' \
   --region us-east-1 \
-  --image-id ami-0a156374cadc03c03 \
+  --image-id ami-0360c520857e3138f \
   --count 1 \
   --instance-type t3.micro \
   --subnet-id "$SUBNET_DMZ_ID" \
-  --private-ip-address 10.11.5.200 \
-  --key-name webserver \
+  --private-ip-address 10.11.5.201 \
   --security-group-ids "$SG_WEBSHOP_ID" \
-  --user-data file://cloud-init-webshop.yaml
+  --user-data file://cloud-init-webshop.yml
 
 # =====Create EC2 Database=====
 aws ec2 run-instances \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=database}]' \
   --region us-east-1 \
-  --image-id ami-0a156374cadc03c03 \
+  --image-id ami-0360c520857e3138f \
   --count 1 \
   --instance-type t3.micro \
   --subnet-id "$SUBNET_PRIV_ID" \
   --private-ip-address 10.11.5.5 \
-  --key-name webserver \
   --security-group-ids "$SG_WEBSERVERONLY_ID" \
-  --user-data file://cloud-init-database.yaml
+  --user-data file://cloud-init-database.yml
 
 # ===== Summary =====
 echo
@@ -192,3 +171,4 @@ SG_WEBSERVERONLY_ID=$SG_WEBSERVERONLY_ID
 NACL_PUB_ID=$NACL_PUB_ID
 NACL_PRIV_ID=$NACL_PRIV_ID
 EOF
+

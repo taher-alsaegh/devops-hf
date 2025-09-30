@@ -1,2 +1,5 @@
 venv/
 .venv/
+.ssh/*
+devops_rsa
+devops_rsa.pub
