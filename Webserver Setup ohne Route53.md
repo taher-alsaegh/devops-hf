@@ -189,4 +189,4 @@ EOF
 ```
 
 6. Per SCP den Private Key auf den Webserver kopieren (Not secure)
-   `scp -i ubuntu@<IP-WEBSERVER>:`
+   `scp -i <PRV-KEY> <PRV-KEY> ubuntu@<IP-WEBSERVER>:`
