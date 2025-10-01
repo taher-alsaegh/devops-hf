@@ -1,9 +1,9 @@
 1. LAB starten und alle aws-cli credentials im Terminal updaten. siehe unter learner lab details
 2. Ubuntu ami der region `us-east-1` überprüfen. Sollte **ami-0360c520857e3138f** sein, falls nicht muss du es im unteren Teil "EC2 erstellen" anpassen.
 3. Git klonen:
-   `git clone https://github.com/taher-alsaegh/Flask-Python-E-Commerce-Website.git`
+   `git clone https://github.com/taher-alsaegh/devops-hf.git`
 4. In aws-infra wechseln:
-   `cd aws-infra`
+   `cd devops-hf/aws-infra`
 5. SSH Key Pair erstellen:
    `ssh-keygen -t rsa -b 4096 -f ~/YOUR-PATH/devops_rsa`
 6. Den pup key in beide cloud-init files hinzufügen. siehe aws-infra folder
