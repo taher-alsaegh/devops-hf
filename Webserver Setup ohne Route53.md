@@ -10,7 +10,7 @@
 7. Berechtigung des pub keys auf read only setzen:
    `chmod 400 devops_rsa`
 8. aws-infra ausführen (muss im directory ausgeführt werden wo alle cloud-init files sind):
-   `chmod +x aws-infra; ./aws-infra`
+   `chmod +x aws-infra; ./aws-infra.sh`
 
 ```bash
 #!/usr/bin/env bash
